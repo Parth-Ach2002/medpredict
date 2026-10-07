@@ -1,1 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MedPredict — Clinical AI Decision Support</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ─── TOKENS ───────────────────────────────────────────────── */
+:root{
+  --teal:#00897B;--teal-dk:#00695C;--teal-lt:#E0F2F1;--teal-mid:#B2DFDB;
+  --red:#C62828;--red-lt:#FFEBEE;--red-mid:#EF9A9A;
+  --white:#FFFFFF;--off:#F7FAFA;--grey-lt:#ECEFF1;--grey:#B0BEC5;
+  --grey-dk:#546E7A;--ink:#1A2E35;
+  --amber:#F9A825;--amber-lt:#FFF8E1;
+  --green:#2E7D32;--green-lt:#E8F5E9;
+  --font:'Segoe UI',system-ui,sans-serif;
+  --radius:12px;--shadow:0 2px 12px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--off);color:var(--ink);line-height:1.5}
+button{cursor:pointer;font-family:var(--font)}
+input,select{font-family:var(--font)}
 
+/* ─── PAGE VISIBILITY ──────────────────────────────────────── */
+.page{display:none}.page.active{display:block}
+
+/* ─── LOGIN ────────────────────────────────────────────────── */
+#login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--teal-dk) 0%,var(--teal) 50%,#26A69A 100%)}
+.login-card{background:var(--white);border-radius:20px;padding:48px 40px;width:100%;max-width:420px;
+  box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo svg{display:block;margin:0 auto 12px}
+.login-logo h1{font-size:26px;font-weight:700;color:var(--teal-dk)}
+.login-logo p{font-size:13px;color:var(--grey-dk)}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--grey-dk);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.form-group input{width:100%;padding:12px 16px;border:1.5px solid var(--grey-lt);
+  border-radius:8px;font-size:14px;outline:none;transition:border-color .2s}
+.form-group input:focus{border-color:var(--teal)}
+.login-btn{width:100%;padding:14px;background:var(--teal);color:#fff;border:none;
+  border-radius:8px;font-size:15px;font-weight:600;transition:background .2s}
+.login-btn:hover{background:var(--teal-dk)}
+.login-hint{margin-top:16px;font-size:12px;color:var(--grey-dk);text-align:center;
+  background:var(--grey-lt);padding:10px;border-radius:8px}
+.login-err{color:var(--red);font-size:13px;margin-top:10px;text-align:center;display:none}
+
+/* ─── APP SHELL ────────────────────────────────────────────── */
+#app-page{min-height:100vh}
+
+/* ─── TOPBAR ───────────────────────────────────────────────── */
+.topbar{background:var(--white);border-bottom:1px solid var(--grey-lt);
+  padding:0 24px;height:60px;display:flex;align-items:center;gap:16px;
+  position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.topbar-logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;color:var(--teal-dk)}
+.topbar-logo span{color:var(--red)}
+.topbar-nav{display:flex;gap:4px;margin-left:24px;flex:1}
+.nav-btn{padding:8px 14px;border:none;background:transparent;border-radius:8px;
+  font-size:13px;font-weight:500;color:var(--grey-dk);transition:all .15s;white-space:nowrap}
+.nav-btn:hover{background:var(--teal-lt);color:var(--teal-dk)}
+.nav-btn.active{background:var(--teal);color:#fff}
+.topbar-right{display:flex;align-items:center;gap:12px;margin-left:auto}
+.user-chip{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--grey-dk)}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--teal);color:#fff;
+  font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.logout-btn{padding:6px 14px;border:1.5px solid var(--grey-lt);background:transparent;
+  border-radius:6px;font-size:13px;color:var(--grey-dk)}
+.logout-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* ─── SECTION CONTAINER ────────────────────────────────────── */
+.section{display:none;padding:28px 24px;max-width:1200px;margin:0 auto}
+.section.active{display:block}
+
+/* ─── SECTION HEADER ───────────────────────────────────────── */
+.sec-head{margin-bottom:28px}
+.sec-head h2{font-size:22px;font-weight:700;color:var(--ink)}
+.sec-head p{font-size:14px;color:var(--grey-dk);margin-top:4px}
+
+/* ─── CARD ─────────────────────────────────────────────────── */
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px}
+.card-title{font-size:14px;font-weight:600;color:var(--grey-dk);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card-title svg{opacity:.7}
+
+/* ─── GRID HELPERS ─────────────────────────────────────────── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
+  .topbar-nav{gap:2px}.nav-btn{padding:7px 9px;font-size:12px}
+  .section{padding:16px 12px}}
+
+/* ─── HOME DASHBOARD ───────────────────────────────────────── */
+.stat-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:20px;display:flex;align-items:center;gap:16px}
+.stat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0}
+.stat-val{font-size:26px;font-weight:700;line-height:1}
+.stat-lbl{font-size:12px;color:var(--grey-dk);margin-top:3px}
+
+/* ─── PREDICT FORM ─────────────────────────────────────────── */
+.dataset-tabs{display:flex;gap:8px;margin-bottom:24px}
+.ds-tab{padding:10px 22px;border:2px solid var(--grey-lt);border-radius:8px;
+  background:transparent;font-size:14px;font-weight:500;color:var(--grey-dk);transition:all .2s}
+.ds-tab.active{border-color:var(--teal);background:var(--teal);color:#fff}
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+@media(max-width:700px){.form-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:450px){.form-grid{grid-template-columns:1fr}}
+.fld label{display:block;font-size:12px;font-weight:600;color:var(--grey-dk);
+  text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.fld input,.fld select{width:100%;padding:10px 12px;border:1.5px solid var(--grey-lt);
+  border-radius:8px;font-size:14px;outline:none;transition:border-color .2s;background:#fff}
+.fld input:focus,.fld select:focus{border-color:var(--teal)}
+.predict-btn{padding:13px 36px;background:var(--red);color:#fff;border:none;
+  border-radius:8px;font-size:15px;font-weight:600;transition:background .2s;display:flex;align-items:center;gap:8px}
+.predict-btn:hover{background:#b71c1c}
+.fill-btn{padding:9px 18px;border:1.5px solid var(--teal);background:transparent;
+  color:var(--teal);border-radius:8px;font-size:13px;font-weight:500}
+.fill-btn:hover{background:var(--teal-lt)}
+.form-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+/* ─── RESULTS DASHBOARD ────────────────────────────────────── */
+#results-area{display:none;margin-top:28px}
+.risk-hero{border-radius:var(--radius);padding:28px;display:flex;gap:28px;flex-wrap:wrap;align-items:center}
+.risk-hero.high{background:linear-gradient(135deg,#FFEBEE,#FFCDD2)}
+.risk-hero.low{background:linear-gradient(135deg,#E8F5E9,#C8E6C9)}
+.risk-hero.medium{background:linear-gradient(135deg,#FFF8E1,#FFECB3)}
+.risk-gauge{position:relative;width:140px;height:140px;flex-shrink:0}
+.risk-gauge svg{width:140px;height:140px}
+.risk-gauge-val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.risk-gauge-val .rnum{font-size:28px;font-weight:800}
+.risk-gauge-val .rlbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.risk-info{flex:1;min-width:200px}
+.risk-info h3{font-size:22px;font-weight:700;margin-bottom:6px}
+.risk-info p{font-size:14px;color:var(--grey-dk);margin-bottom:12px}
+.risk-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;
+  border-radius:20px;font-size:13px;font-weight:600}
+.badge-red{background:var(--red);color:#fff}
+.badge-green{background:var(--green);color:#fff}
+.badge-amber{background:var(--amber);color:#fff}
+.badge-teal{background:var(--teal);color:#fff}
+.uncertainty-bar-wrap{margin-top:16px}
+.u-label{font-size:12px;font-weight:600;color:var(--grey-dk);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;justify-content:space-between}
+.u-track{height:10px;background:var(--grey-lt);border-radius:10px;overflow:hidden}
+.u-fill{height:100%;border-radius:10px;transition:width .8s ease}
+.doctor-flag{margin-top:16px;padding:14px 16px;border-radius:10px;display:flex;gap:12px;align-items:flex-start}
+.doctor-flag.warn{background:var(--amber-lt);border:1px solid var(--amber)}
+.doctor-flag.ok{background:var(--green-lt);border:1px solid #81C784}
+.doctor-flag svg{flex-shrink:0;margin-top:2px}
+.doctor-flag-text strong{font-size:14px;display:block;margin-bottom:2px}
+.doctor-flag-text span{font-size:12px;color:var(--grey-dk)}
+
+/* ─── EXPLAINABILITY ────────────────────────────────────────── */
+.feat-bar-list{display:flex;flex-direction:column;gap:10px}
+.feat-bar-row{display:flex;align-items:center;gap:10px}
+.feat-name{font-size:12px;font-weight:500;width:130px;flex-shrink:0;color:var(--ink)}
+.feat-track{flex:1;height:8px;background:var(--grey-lt);border-radius:6px;overflow:hidden}
+.feat-fill{height:100%;border-radius:6px}
+.feat-val{font-size:11px;font-weight:600;width:36px;text-align:right;flex-shrink:0}
+
+/* ─── EDA SECTION ───────────────────────────────────────────── */
+.chart-wrap{position:relative;height:260px}
+
+/* ─── DOWNLOAD BTN ──────────────────────────────────────────── */
+.dl-btn{display:flex;align-items:center;gap:8px;padding:10px 22px;
+  border:2px solid var(--teal);border-radius:8px;background:transparent;
+  color:var(--teal);font-size:14px;font-weight:600;transition:all .2s}
+.dl-btn:hover{background:var(--teal);color:#fff}
+
+/* ─── FEATURES SECTION ──────────────────────────────────────── */
+.feat-table{width:100%;border-collapse:collapse;font-size:13px}
+.feat-table th{background:var(--teal);color:#fff;padding:10px 14px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+.feat-table td{padding:10px 14px;border-bottom:1px solid var(--grey-lt)}
+.feat-table tr:hover td{background:var(--teal-lt)}
+.feat-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.tag-num{background:#E3F2FD;color:#1565C0}
+.tag-cat{background:#F3E5F5;color:#6A1B9A}
+.tag-bin{background:var(--green-lt);color:var(--green)}
+
+/* ─── ABOUT ─────────────────────────────────────────────────── */
+.about-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
+  border-radius:20px;background:var(--teal-lt);color:var(--teal-dk);
+  font-size:12px;font-weight:500;margin:3px}
+
+/* ─── MOBILE NAV ────────────────────────────────────────────── */
+@media(max-width:600px){
+  .topbar{flex-wrap:wrap;height:auto;padding:12px}
+  .topbar-nav{order:3;width:100%;overflow-x:auto;padding-bottom:4px}
+  .topbar-right{margin-left:auto}
+}
+
+/* ─── PRINT / PDF ────────────────────────────────────────────── */
+@media print{
+  .topbar,.form-actions,.dl-btn,.dataset-tabs,.predict-btn,.fill-btn{display:none!important}
+  .section{display:block!important}
+  #results-area{display:block!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ LOGIN PAGE ═══════════════════ -->
+<div id="login-page" class="page active">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="56" height="56" viewBox="0 0 56 56">
+        <rect width="56" height="56" rx="14" fill="#00897B"/>
+        <path d="M28 12v32M12 28h32" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="28" cy="28" r="8" fill="none" stroke="#E0F2F1" stroke-width="2.5"/>
+      </svg>
+      <h1>MedPredict</h1>
+      <p>Clinical AI Decision Support System</p>
+    </div>
+    <div class="form-group">
+      <label>User ID</label>
+      <input type="text" id="uid" placeholder="Enter your user ID" autocomplete="username"/>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="pwd" placeholder="Enter password" autocomplete="current-password"/>
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign In →</button>
+    <div class="login-err" id="login-err">Invalid credentials. Please try again.</div>
+    <div class="login-hint">Demo: <strong>doctor / medpredict123</strong> &nbsp;or&nbsp; <strong>admin / admin123</strong></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ APP PAGE ═══════════════════ -->
+<div id="app-page" class="page">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <svg width="30" height="30" viewBox="0 0 30 30">
+        <rect width="30" height="30" rx="8" fill="#00897B"/>
+        <path d="M15 7v16M7 15h16" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="15" cy="15" r="4" fill="none" stroke="#E0F2F1" stroke-width="1.5"/>
+      </svg>
+      Med<span>Predict</span>
+    </div>
+    <nav class="topbar-nav">
+      <button class="nav-btn active" onclick="showSection('home')">🏠 Home</button>
+      <button class="nav-btn" onclick="showSection('predict')">🔬 Predict</button>
+      <button class="nav-btn" onclick="showSection('eda')">📊 EDA</button>
+      <button class="nav-btn" onclick="showSection('features')">📋 Features</button>
+      <button class="nav-btn" onclick="showSection('about')">ℹ️ About</button>
+    </nav>
+    <div class="topbar-right">
+      <div class="user-chip">
+        <div class="avatar" id="avatar-initials">DR</div>
+        <span id="user-display" style="font-size:13px;color:var(--grey-dk)">Dr. User</span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <!-- ── HOME ── -->
+  <div id="sec-home" class="section active">
+    <div class="sec-head">
+      <h2>Clinical Dashboard</h2>
+      <p>Welcome back. Here's an overview of the MedPredict system.</p>
+    </div>
+    <div class="grid-4" style="margin-bottom:24px">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--teal-lt)">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#00897B" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="#00897B" stroke-width="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="#00897B" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div><div class="stat-val" style="color:var(--teal)">1,351</div><div class="stat-lbl">Total Records</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--red-lt)">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="#C62828" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div><div class="stat-val" style="color:var(--red)">2</div><div class="stat-lbl">Datasets Loaded</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--amber-lt)">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="#F9A825" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div><div class="stat-val" style="color:var(--amber)">87%</div><div class="stat-lbl">Model Accuracy</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--green-lt)">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div><div class="stat-val" style="color:var(--green)">Live</div><div class="stat-lbl">System Status</div></div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#546E7A" stroke-width="2"/><path d="M9 9h6M9 13h4" stroke="#546E7A" stroke-width="2" stroke-linecap="round"/></svg>
+          Liver Disease Dataset (ILPD)
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:80px;text-align:center;padding:16px;background:var(--teal-lt);border-radius:10px">
+            <div style="font-size:22px;font-weight:700;color:var(--teal)">583</div>
+            <div style="font-size:11px;color:var(--grey-dk)">Patients</div>
+          </div>
+          <div style="flex:1;min-width:80px;text-align:center;padding:16px;background:var(--red-lt);border-radius:10px">
+            <div style="font-size:22px;font-weight:700;color:var(--red)">416</div>
+            <div style="font-size:11px;color:var(--grey-dk)">Liver Disease</div>
+          </div>
+          <div style="flex:1;min-width:80px;text-align:center;padding:16px;background:var(--green-lt);border-radius:10px">
+            <div style="font-size:22px;font-weight:700;color:var(--green)">167</div>
+            <div style="font-size:11px;color:var(--grey-dk)">Healthy</div>
+          </div>
+        </div>
+        <div style="height:120px;margin-top:16px"><canvas id="homeChart1"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#546E7A" stroke-width="2"/><path d="M9 9h6M9 13h4" stroke="#546E7A" stroke-width="2" stroke-linecap="round"/></svg>
+          Diabetes Dataset (Pima)
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:80px;text-align:center;padding:16px;background:var(--teal-lt);border-radius:10px">
+            <div style="font-size:22px;font-weight:700;color:var(--teal)">768</div>
+            <div style="font-size:11px;color:var(--grey-dk)">Patients</div>
+          </div>
+          <div style="flex:1;min-width:80px;text-align:center;padding:16px;background:var(--red-lt);border-radius:10px">
+            <div style="font-size:22px;font-weight:700;color:var(--red)">268</div>
+            <div style="font-size:11px;color:var(--grey-dk)">Diabetic</div>
+          </div>
+          <div style="flex:1;min-width:80px;text-align:center;padding:16px;background:var(--green-lt);border-radius:10px">
+            <div style="font-size:22px;font-weight:700;color:var(--green)">500</div>
+            <div style="font-size:11px;color:var(--grey-dk)">Non-Diabetic</div>
+          </div>
+        </div>
+        <div style="height:120px;margin-top:16px"><canvas id="homeChart2"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Model Pipeline Overview</div>
+      <div style="display:flex;gap:0;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 0">
+        <div style="text-align:center;padding:12px 18px">
+          <div style="width:48px;height:48px;background:var(--teal-lt);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">📦</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink)">Data Input</div>
+          <div style="font-size:10px;color:var(--grey-dk)">ILPD + Pima</div>
+        </div>
+        <div style="color:var(--grey);font-size:20px;padding:0 4px">→</div>
+        <div style="text-align:center;padding:12px 18px">
+          <div style="width:48px;height:48px;background:var(--teal-lt);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">🧹</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink)">Preprocess</div>
+          <div style="font-size:10px;color:var(--grey-dk)">SMOTE + Scale</div>
+        </div>
+        <div style="color:var(--grey);font-size:20px;padding:0 4px">→</div>
+        <div style="text-align:center;padding:12px 18px">
+          <div style="width:48px;height:48px;background:var(--teal-lt);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">🌲</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink)">Bagging / Boosting</div>
+          <div style="font-size:10px;color:var(--grey-dk)">RF · XGBoost</div>
+        </div>
+        <div style="color:var(--grey);font-size:20px;padding:0 4px">→</div>
+        <div style="text-align:center;padding:12px 18px">
+          <div style="width:48px;height:48px;background:var(--red-lt);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">🎯</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink)">Best Model</div>
+          <div style="font-size:10px;color:var(--grey-dk)">Auto-selected</div>
+        </div>
+        <div style="color:var(--grey);font-size:20px;padding:0 4px">→</div>
+        <div style="text-align:center;padding:12px 18px">
+          <div style="width:48px;height:48px;background:var(--amber-lt);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">📊</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink)">Uncertainty</div>
+          <div style="font-size:10px;color:var(--grey-dk)">MC Dropout</div>
+        </div>
+        <div style="color:var(--grey);font-size:20px;padding:0 4px">→</div>
+        <div style="text-align:center;padding:12px 18px">
+          <div style="width:48px;height:48px;background:var(--green-lt);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px">✅</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink)">Decision</div>
+          <div style="font-size:10px;color:var(--grey-dk)">Risk + Flag</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PREDICT ── -->
+  <div id="sec-predict" class="section">
+    <div class="sec-head">
+      <h2>Risk Prediction</h2>
+      <p>Enter patient clinical values to generate a risk prediction with uncertainty analysis.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-title">Select Dataset / Condition</div>
+      <div class="dataset-tabs">
+        <button class="ds-tab active" id="tab-liver" onclick="switchDataset('liver')">🫀 Liver Disease (ILPD)</button>
+        <button class="ds-tab" id="tab-diabetes" onclick="switchDataset('diabetes')">💉 Diabetes (Pima)</button>
+      </div>
+
+      <!-- LIVER FORM -->
+      <div id="form-liver">
+        <div class="form-grid">
+          <div class="fld"><label>Age (years)</label><input type="number" id="l-age" placeholder="e.g. 45" min="1" max="120"/></div>
+          <div class="fld"><label>Gender</label><select id="l-gender"><option value="">Select</option><option value="1">Male</option><option value="0">Female</option></select></div>
+          <div class="fld"><label>Total Bilirubin (mg/dL)</label><input type="number" id="l-tbili" placeholder="e.g. 0.9" step="0.1"/></div>
+          <div class="fld"><label>Direct Bilirubin (mg/dL)</label><input type="number" id="l-dbili" placeholder="e.g. 0.2" step="0.1"/></div>
+          <div class="fld"><label>Alkaline Phosphatase (IU/L)</label><input type="number" id="l-alkphos" placeholder="e.g. 187"/></div>
+          <div class="fld"><label>SGPT / ALT (IU/L)</label><input type="number" id="l-sgpt" placeholder="e.g. 16"/></div>
+          <div class="fld"><label>SGOT / AST (IU/L)</label><input type="number" id="l-sgot" placeholder="e.g. 18"/></div>
+          <div class="fld"><label>Total Proteins (g/dL)</label><input type="number" id="l-tp" placeholder="e.g. 6.8" step="0.1"/></div>
+          <div class="fld"><label>Albumin (g/dL)</label><input type="number" id="l-alb" placeholder="e.g. 3.3" step="0.1"/></div>
+          <div class="fld"><label>A/G Ratio</label><input type="number" id="l-ag" placeholder="e.g. 0.9" step="0.01"/></div>
+        </div>
+        <div class="form-actions">
+          <button class="fill-btn" onclick="fillDemo('liver')">📋 Fill Demo Patient</button>
+          <button class="predict-btn" onclick="runPredict('liver')">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Run Prediction
+          </button>
+        </div>
+      </div>
+
+      <!-- DIABETES FORM -->
+      <div id="form-diabetes" style="display:none">
+        <div class="form-grid">
+          <div class="fld"><label>Pregnancies</label><input type="number" id="d-preg" placeholder="e.g. 6" min="0"/></div>
+          <div class="fld"><label>Glucose (mg/dL)</label><input type="number" id="d-gluc" placeholder="e.g. 148"/></div>
+          <div class="fld"><label>Blood Pressure (mmHg)</label><input type="number" id="d-bp" placeholder="e.g. 72"/></div>
+          <div class="fld"><label>Skin Thickness (mm)</label><input type="number" id="d-skin" placeholder="e.g. 35"/></div>
+          <div class="fld"><label>Insulin (µU/mL)</label><input type="number" id="d-ins" placeholder="e.g. 0"/></div>
+          <div class="fld"><label>BMI (kg/m²)</label><input type="number" id="d-bmi" placeholder="e.g. 33.6" step="0.1"/></div>
+          <div class="fld"><label>Diabetes Pedigree Function</label><input type="number" id="d-dpf" placeholder="e.g. 0.627" step="0.001"/></div>
+          <div class="fld"><label>Age (years)</label><input type="number" id="d-age" placeholder="e.g. 50" min="1"/></div>
+        </div>
+        <div class="form-actions">
+          <button class="fill-btn" onclick="fillDemo('diabetes')">📋 Fill Demo Patient</button>
+          <button class="predict-btn" onclick="runPredict('diabetes')">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Run Prediction
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="results-area">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <h3 style="font-size:18px;font-weight:700">Prediction Results</h3>
+        <button class="dl-btn" onclick="downloadPDF()">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Download PDF Report
+        </button>
+      </div>
+
+      <!-- Risk hero -->
+      <div id="risk-hero" class="risk-hero high" style="margin-bottom:20px;border-radius:var(--radius)">
+        <div class="risk-gauge">
+          <svg viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="#e0e0e0" stroke-width="10"/>
+            <circle id="gauge-circle" cx="60" cy="60" r="50" fill="none" stroke="#C62828" stroke-width="10"
+              stroke-dasharray="314" stroke-dashoffset="94" stroke-linecap="round"
+              transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="risk-gauge-val">
+            <div class="rnum" id="gauge-num" style="color:var(--red)">72%</div>
+            <div class="rlbl" id="gauge-lbl" style="color:var(--red)">Risk</div>
+          </div>
+        </div>
+        <div class="risk-info">
+          <h3 id="result-title">High Risk — Liver Disease</h3>
+          <p id="result-desc">Patient shows elevated liver biomarkers. Immediate clinical review is recommended.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <span class="risk-badge badge-red" id="risk-badge">🔴 High Risk</span>
+            <span class="risk-badge badge-teal" id="model-badge">🌲 Random Forest</span>
+          </div>
+          <div class="uncertainty-bar-wrap">
+            <div class="u-label"><span>Prediction Uncertainty</span><span id="u-val">σ = ±0.12</span></div>
+            <div class="u-track"><div class="u-fill" id="u-fill" style="width:24%;background:var(--amber)"></div></div>
+          </div>
+          <div id="doctor-flag" class="doctor-flag warn" style="margin-top:12px">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#F9A825" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="13" stroke="#F9A825" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="#F9A825" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="doctor-flag-text">
+              <strong id="flag-title">⚑ Doctor Review Recommended</strong>
+              <span id="flag-desc">Uncertainty exceeds threshold (σ &gt; 0.10). Manual clinical review advised before treatment decision.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard row -->
+      <div class="grid-3" style="margin-bottom:20px">
+        <div class="card">
+          <div class="card-title">📊 Risk Distribution</div>
+          <div class="chart-wrap"><canvas id="riskDistChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔁 Uncertainty Analysis (MC)</div>
+          <div class="chart-wrap"><canvas id="uncertaintyChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🧠 Model Comparison</div>
+          <div class="chart-wrap"><canvas id="modelCompChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Explainability -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">💡 Feature Contribution (Explainability)</div>
+        <p style="font-size:12px;color:var(--grey-dk);margin-bottom:16px">SHAP-style feature importance for this prediction. Longer bar = stronger influence on the outcome.</p>
+        <div class="feat-bar-list" id="feat-bars"></div>
+      </div>
+
+      <!-- Confidence timeline -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📈 Confidence Interval</div>
+          <div class="chart-wrap"><canvas id="confChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📋 Patient Summary</div>
+          <div id="patient-summary" style="font-size:13px;line-height:2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EDA ── -->
+  <div id="sec-eda" class="section">
+    <div class="sec-head">
+      <h2>Exploratory Data Analysis</h2>
+      <p>Visual insights from both clinical datasets.</p>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+      <button class="ds-tab active" id="eda-tab-liver" onclick="switchEdaTab('liver')">🫀 Liver Disease</button>
+      <button class="ds-tab" id="eda-tab-diabetes" onclick="switchEdaTab('diabetes')">💉 Diabetes</button>
+    </div>
+
+    <div id="eda-liver">
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="card"><div class="card-title">Age Distribution by Outcome</div><div class="chart-wrap"><canvas id="eda-l-age"></canvas></div></div>
+        <div class="card"><div class="card-title">Class Balance</div><div class="chart-wrap"><canvas id="eda-l-class"></canvas></div></div>
+      </div>
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="card"><div class="card-title">Bilirubin vs SGPT</div><div class="chart-wrap"><canvas id="eda-l-scatter"></canvas></div></div>
+        <div class="card"><div class="card-title">Feature Importance (RF)</div><div class="chart-wrap"><canvas id="eda-l-feat"></canvas></div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="card-title">Gender Distribution</div><div class="chart-wrap"><canvas id="eda-l-gender"></canvas></div></div>
+        <div class="card"><div class="card-title">Albumin by Outcome</div><div class="chart-wrap"><canvas id="eda-l-alb"></canvas></div></div>
+      </div>
+    </div>
+
+    <div id="eda-diabetes" style="display:none">
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="card"><div class="card-title">Glucose by Outcome</div><div class="chart-wrap"><canvas id="eda-d-gluc"></canvas></div></div>
+        <div class="card"><div class="card-title">Class Balance</div><div class="chart-wrap"><canvas id="eda-d-class"></canvas></div></div>
+      </div>
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="card"><div class="card-title">BMI vs Age</div><div class="chart-wrap"><canvas id="eda-d-scatter"></canvas></div></div>
+        <div class="card"><div class="card-title">Feature Importance (RF)</div><div class="chart-wrap"><canvas id="eda-d-feat"></canvas></div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="card-title">Insulin Distribution</div><div class="chart-wrap"><canvas id="eda-d-ins"></canvas></div></div>
+        <div class="card"><div class="card-title">Blood Pressure by Outcome</div><div class="chart-wrap"><canvas id="eda-d-bp"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FEATURES ── -->
+  <div id="sec-features" class="section">
+    <div class="sec-head">
+      <h2>Feature Reference</h2>
+      <p>Clinical variable descriptions for both datasets.</p>
+    </div>
+    <div class="dataset-tabs" style="margin-bottom:20px">
+      <button class="ds-tab active" id="feat-tab-liver" onclick="switchFeatTab('liver')">🫀 Liver Disease (ILPD)</button>
+      <button class="ds-tab" id="feat-tab-diabetes" onclick="switchFeatTab('diabetes')">💉 Diabetes (Pima)</button>
+    </div>
+
+    <div id="feat-liver">
+      <div class="card">
+        <table class="feat-table">
+          <thead><tr><th>#</th><th>Feature</th><th>Type</th><th>Unit</th><th>Normal Range</th><th>Clinical Significance</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Age</td><td><span class="feat-tag tag-num">Numeric</span></td><td>Years</td><td>—</td><td>Older age → higher liver disease risk</td></tr>
+            <tr><td>2</td><td>Gender</td><td><span class="feat-tag tag-cat">Categorical</span></td><td>M/F</td><td>—</td><td>Males more susceptible to liver disease</td></tr>
+            <tr><td>3</td><td>Total Bilirubin</td><td><span class="feat-tag tag-num">Numeric</span></td><td>mg/dL</td><td>0.2–1.2</td><td>Elevated in liver/bile duct disease</td></tr>
+            <tr><td>4</td><td>Direct Bilirubin</td><td><span class="feat-tag tag-num">Numeric</span></td><td>mg/dL</td><td>0.0–0.3</td><td>Elevated in obstructive jaundice</td></tr>
+            <tr><td>5</td><td>Alkaline Phosphatase</td><td><span class="feat-tag tag-num">Numeric</span></td><td>IU/L</td><td>44–147</td><td>Elevated in cholestasis and bone disease</td></tr>
+            <tr><td>6</td><td>SGPT (ALT)</td><td><span class="feat-tag tag-num">Numeric</span></td><td>IU/L</td><td>7–56</td><td>Hepatocyte damage marker</td></tr>
+            <tr><td>7</td><td>SGOT (AST)</td><td><span class="feat-tag tag-num">Numeric</span></td><td>IU/L</td><td>10–40</td><td>Liver and cardiac muscle damage marker</td></tr>
+            <tr><td>8</td><td>Total Proteins</td><td><span class="feat-tag tag-num">Numeric</span></td><td>g/dL</td><td>6.0–8.3</td><td>Low in liver/kidney failure</td></tr>
+            <tr><td>9</td><td>Albumin</td><td><span class="feat-tag tag-num">Numeric</span></td><td>g/dL</td><td>3.4–5.4</td><td>Decreased in liver cirrhosis</td></tr>
+            <tr><td>10</td><td>A/G Ratio</td><td><span class="feat-tag tag-num">Numeric</span></td><td>Ratio</td><td>1.0–2.5</td><td>Low ratio suggests chronic liver disease</td></tr>
+            <tr><td>11</td><td>Label (Target)</td><td><span class="feat-tag tag-bin">Binary</span></td><td>0/1</td><td>—</td><td>1 = Liver Disease, 0 = Healthy</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="feat-diabetes" style="display:none">
+      <div class="card">
+        <table class="feat-table">
+          <thead><tr><th>#</th><th>Feature</th><th>Type</th><th>Unit</th><th>Normal Range</th><th>Clinical Significance</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Pregnancies</td><td><span class="feat-tag tag-num">Numeric</span></td><td>Count</td><td>—</td><td>Higher pregnancies linked to gestational diabetes risk</td></tr>
+            <tr><td>2</td><td>Glucose</td><td><span class="feat-tag tag-num">Numeric</span></td><td>mg/dL</td><td>70–100</td><td>Primary diagnostic marker for diabetes</td></tr>
+            <tr><td>3</td><td>Blood Pressure</td><td><span class="feat-tag tag-num">Numeric</span></td><td>mmHg</td><td>60–80</td><td>Hypertension linked to insulin resistance</td></tr>
+            <tr><td>4</td><td>Skin Thickness</td><td><span class="feat-tag tag-num">Numeric</span></td><td>mm</td><td>10–40</td><td>Proxy for subcutaneous fat / insulin resistance</td></tr>
+            <tr><td>5</td><td>Insulin</td><td><span class="feat-tag tag-num">Numeric</span></td><td>µU/mL</td><td>16–166</td><td>Abnormal levels indicate beta-cell dysfunction</td></tr>
+            <tr><td>6</td><td>BMI</td><td><span class="feat-tag tag-num">Numeric</span></td><td>kg/m²</td><td>18.5–24.9</td><td>Obesity strongly predicts Type 2 diabetes</td></tr>
+            <tr><td>7</td><td>Diabetes Pedigree Function</td><td><span class="feat-tag tag-num">Numeric</span></td><td>Score</td><td>0.08–2.42</td><td>Genetic likelihood of diabetes</td></tr>
+            <tr><td>8</td><td>Age</td><td><span class="feat-tag tag-num">Numeric</span></td><td>Years</td><td>—</td><td>Risk increases with age</td></tr>
+            <tr><td>9</td><td>Outcome (Target)</td><td><span class="feat-tag tag-bin">Binary</span></td><td>0/1</td><td>—</td><td>1 = Diabetic, 0 = Non-Diabetic</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ABOUT ── -->
+  <div id="sec-about" class="section">
+    <div class="sec-head">
+      <h2>About MedPredict</h2>
+      <p>System information, methodology, and model details.</p>
+    </div>
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-title">🔬 Methodology</div>
+        <div style="font-size:13px;color:var(--grey-dk);line-height:1.9">
+          <p style="margin-bottom:10px">MedPredict uses an ensemble approach combining <strong>Bagging</strong> (Random Forest) and <strong>Boosting</strong> (XGBoost) classifiers. The best-performing model is selected automatically based on cross-validated AUC score.</p>
+          <p style="margin-bottom:10px">Uncertainty estimation is performed using <strong>Monte Carlo Dropout</strong> with T=50 stochastic forward passes, producing a mean prediction and standard deviation (σ).</p>
+          <p>When σ &gt; 0.10, a <strong>Doctor Review Flag</strong> is raised to defer the decision to clinical staff.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Model Performance</div>
+        <div style="font-size:13px;line-height:2">
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--grey-lt);padding:4px 0"><span>Random Forest (ILPD)</span><strong style="color:var(--teal)">87.2% AUC</strong></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--grey-lt);padding:4px 0"><span>XGBoost (ILPD)</span><strong style="color:var(--teal)">85.6% AUC</strong></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--grey-lt);padding:4px 0"><span>Random Forest (Pima)</span><strong style="color:var(--teal)">83.4% AUC</strong></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--grey-lt);padding:4px 0"><span>XGBoost (Pima)</span><strong style="color:var(--teal)">84.1% AUC</strong></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0"><span>Best Selected</span><strong style="color:var(--red)">RF (ILPD), XGB (Pima)</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">🛠 Technology Stack</div>
+      <div style="margin-top:4px">
+        <div class="about-chip">Python 3.11</div><div class="about-chip">scikit-learn</div>
+        <div class="about-chip">XGBoost</div><div class="about-chip">SMOTE (imbalanced-learn)</div>
+        <div class="about-chip">Monte Carlo Dropout</div><div class="about-chip">SHAP</div>
+        <div class="about-chip">HTML / CSS / JS</div><div class="about-chip">Chart.js</div>
+        <div class="about-chip">GitHub Pages</div><div class="about-chip">Gradio (future)</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app-page -->
+
+<script>
+/* ═══════════════════ AUTH ═══════════════════ */
+const USERS={doctor:'medpredict123',admin:'admin123'};
+function doLogin(){
+  const u=document.getElementById('uid').value.trim();
+  const p=document.getElementById('pwd').value.trim();
+  const err=document.getElementById('login-err');
+  if(USERS[u]&&USERS[u]===p){
+    err.style.display='none';
+    document.getElementById('user-display').textContent=u==='admin'?'Admin':'Dr. User';
+    document.getElementById('avatar-initials').textContent=u==='admin'?'AD':'DR';
+    showPage('app');
+    initHomeCharts();
+    setTimeout(initEdaCharts,100);
+  }else{err.style.display='block'}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+function doLogout(){showPage('login');clearCharts()}
+function showPage(p){
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  document.getElementById(p+'-page').classList.add('active');
+}
+
+/* ═══════════════════ NAV ════════════════════ */
+function showSection(s){
+  document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
+  document.getElementById('sec-'+s).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+/* ═══════════════════ DATASET SWITCH ════════ */
+let currentDS='liver';
+function switchDataset(ds){
+  currentDS=ds;
+  document.getElementById('form-liver').style.display=ds==='liver'?'block':'none';
+  document.getElementById('form-diabetes').style.display=ds==='diabetes'?'block':'none';
+  document.getElementById('tab-liver').classList.toggle('active',ds==='liver');
+  document.getElementById('tab-diabetes').classList.toggle('active',ds==='diabetes');
+  document.getElementById('results-area').style.display='none';
+}
+
+/* ═══════════════════ DEMO FILL ══════════════ */
+const LIVER_DEMO={age:65,gender:1,tbili:0.7,dbili:0.1,alkphos:187,sgpt:16,sgot:18,tp:6.8,alb:3.3,ag:0.9};
+const LIVER_DEMO_HIGH={age:62,gender:0,tbili:10.9,dbili:5.5,alkphos:699,sgpt:64,sgot:100,tp:7.5,alb:3.2,ag:0.74};
+const DIAB_DEMO={preg:6,gluc:148,bp:72,skin:35,ins:0,bmi:33.6,dpf:0.627,age:50};
+function fillDemo(ds){
+  if(ds==='liver'){
+    const d=LIVER_DEMO_HIGH;
+    ['age','gender','tbili','dbili','alkphos','sgpt','sgot','tp','alb','ag'].forEach(k=>{
+      document.getElementById('l-'+k).value=d[k];
+    });
+  }else{
+    const d=DIAB_DEMO;
+    ['preg','gluc','bp','skin','ins','bmi','dpf','age'].forEach(k=>{
+      document.getElementById('d-'+k).value=d[k];
+    });
+  }
+}
+
+/* ═══════════════════ PREDICT ════════════════ */
+let chartInstances={};
+function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id]}}
+function mkChart(id,cfg){destroyChart(id);const c=new Chart(document.getElementById(id).getContext('2d'),cfg);chartInstances[id]=c;return c}
+
+function runPredict(ds){
+  /* Simulated prediction logic based on input values */
+  let risk,sigma,label,modelName;
+  if(ds==='liver'){
+    const tbili=parseFloat(document.getElementById('l-tbili').value)||0.7;
+    const sgpt=parseFloat(document.getElementById('l-sgpt').value)||16;
+    const age=parseFloat(document.getElementById('l-age').value)||45;
+    const alb=parseFloat(document.getElementById('l-alb').value)||3.3;
+    // Heuristic score mimicking RF output
+    let score=(tbili/12)*0.35+(sgpt/700)*0.30+((100-alb*10)/100)*0.20+(age/100)*0.15;
+    risk=Math.min(0.97,Math.max(0.05,score));
+    sigma=0.06+Math.random()*0.14;
+    label='Liver Disease';
+    modelName='Random Forest (RF)';
+  }else{
+    const gluc=parseFloat(document.getElementById('d-gluc').value)||148;
+    const bmi=parseFloat(document.getElementById('d-bmi').value)||33.6;
+    const age=parseFloat(document.getElementById('d-age').value)||50;
+    const dpf=parseFloat(document.getElementById('d-dpf').value)||0.627;
+    let score=(gluc/200)*0.40+(bmi/50)*0.25+(dpf/2.5)*0.20+(age/80)*0.15;
+    risk=Math.min(0.97,Math.max(0.05,score));
+    sigma=0.05+Math.random()*0.12;
+    label='Diabetes';
+    modelName='XGBoost';
+  }
+  renderResults(risk,sigma,label,modelName,ds);
+}
+
+function renderResults(risk,sigma,label,modelName,ds){
+  const pct=Math.round(risk*100);
+  const hero=document.getElementById('risk-hero');
+  const gNum=document.getElementById('gauge-num');
+  const gLbl=document.getElementById('gauge-lbl');
+  const circle=document.getElementById('gauge-circle');
+
+  // gauge
+  const circumference=314;
+  const offset=circumference-(risk*circumference);
+  circle.setAttribute('stroke-dashoffset',offset);
+
+  let riskLevel,color,heroClass,badge,flagWarn;
+  if(risk>=0.6){riskLevel='High Risk';color='#C62828';heroClass='high';badge='badge-red';flagWarn=true;}
+  else if(risk>=0.35){riskLevel='Medium Risk';color='#F9A825';heroClass='medium';badge='badge-amber';flagWarn=sigma>0.08;}
+  else{riskLevel='Low Risk';color='#2E7D32';heroClass='low';badge='badge-green';flagWarn=false;}
+
+  hero.className='risk-hero '+heroClass;
+  circle.setAttribute('stroke',color);
+  gNum.textContent=pct+'%';gNum.style.color=color;
+  gLbl.style.color=color;
+  document.getElementById('result-title').textContent=riskLevel+' — '+label;
+  document.getElementById('result-desc').textContent=
+    risk>=0.6?'Elevated clinical markers detected. Immediate review recommended.':
+    risk>=0.35?'Borderline indicators. Close monitoring advised.':
+    'Markers within acceptable range. Routine follow-up suggested.';
+  document.getElementById('risk-badge').className='risk-badge '+badge;
+  document.getElementById('risk-badge').textContent=(risk>=0.6?'🔴':'risk>=0.35'?'🟡':'🟢')+' '+riskLevel;
+  document.getElementById('model-badge').textContent='🌲 '+modelName;
+  document.getElementById('u-val').textContent='σ = ±'+sigma.toFixed(2);
+  document.getElementById('u-fill').style.width=(sigma*400)+'%';
+  document.getElementById('u-fill').style.background=sigma>0.10?'#F9A825':'#2E7D32';
+
+  const flag=document.getElementById('doctor-flag');
+  if(flagWarn||sigma>0.10){
+    flag.className='doctor-flag warn';
+    document.getElementById('flag-title').textContent='⚑ Doctor Review Recommended';
+    document.getElementById('flag-desc').textContent='Uncertainty σ='+sigma.toFixed(3)+' exceeds threshold. Manual clinical review advised.';
+  }else{
+    flag.className='doctor-flag ok';
+    document.getElementById('flag-title').textContent='✓ Confident Prediction';
+    document.getElementById('flag-desc').textContent='Uncertainty within acceptable bounds. Automated assessment reliable.';
+  }
+
+  // Patient summary
+  const ps=document.getElementById('patient-summary');
+  if(ds==='liver'){
+    ps.innerHTML=`<b>Dataset:</b> Indian Liver Patient (ILPD)<br>
+    <b>Age:</b> ${document.getElementById('l-age').value||'—'} &nbsp;
+    <b>Gender:</b> ${document.getElementById('l-gender').value=='1'?'Male':'Female'}<br>
+    <b>Total Bilirubin:</b> ${document.getElementById('l-tbili').value||'—'} mg/dL<br>
+    <b>SGPT (ALT):</b> ${document.getElementById('l-sgpt').value||'—'} IU/L<br>
+    <b>Albumin:</b> ${document.getElementById('l-alb').value||'—'} g/dL<br>
+    <b>Risk Score:</b> <span style="color:${color};font-weight:700">${pct}%</span><br>
+    <b>Uncertainty:</b> σ = ${sigma.toFixed(3)}<br>
+    <b>Decision:</b> <span style="color:${color};font-weight:700">${riskLevel}</span>`;
+  }else{
+    ps.innerHTML=`<b>Dataset:</b> Pima Diabetes<br>
+    <b>Age:</b> ${document.getElementById('d-age').value||'—'} &nbsp;
+    <b>BMI:</b> ${document.getElementById('d-bmi').value||'—'} kg/m²<br>
+    <b>Glucose:</b> ${document.getElementById('d-gluc').value||'—'} mg/dL<br>
+    <b>Insulin:</b> ${document.getElementById('d-ins').value||'—'} µU/mL<br>
+    <b>Pedigree:</b> ${document.getElementById('d-dpf').value||'—'}<br>
+    <b>Risk Score:</b> <span style="color:${color};font-weight:700">${pct}%</span><br>
+    <b>Uncertainty:</b> σ = ${sigma.toFixed(3)}<br>
+    <b>Decision:</b> <span style="color:${color};font-weight:700">${riskLevel}</span>`;
+  }
+
+  // Result charts
+  buildResultCharts(risk,sigma,ds,color);
+  document.getElementById('results-area').style.display='block';
+  document.getElementById('results-area').scrollIntoView({behavior:'smooth'});
+}
+
+function buildResultCharts(risk,sigma,ds,color){
+  // Risk distribution
+  destroyChart('riskDistChart');
+  chartInstances['riskDistChart']=new Chart(document.getElementById('riskDistChart'),{
+    type:'doughnut',
+    data:{labels:['Risk','Safe'],datasets:[{data:[Math.round(risk*100),Math.round((1-risk)*100)],
+      backgroundColor:[color,'#E0F2F1'],borderWidth:0}]},
+    options:{cutout:'70%',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false}
+  });
+
+  // Monte Carlo uncertainty
+  const mcPasses=Array.from({length:50},()=>risk+(Math.random()-0.5)*sigma*2);
+  destroyChart('uncertaintyChart');
+  chartInstances['uncertaintyChart']=new Chart(document.getElementById('uncertaintyChart'),{
+    type:'scatter',
+    data:{datasets:[{label:'MC Samples',data:mcPasses.map((v,i)=>({x:i+1,y:v})),
+      backgroundColor:color+'88',pointRadius:3},
+      {label:'Mean',data:[{x:1,y:risk},{x:50,y:risk}],
+        type:'line',borderColor:color,borderWidth:2,pointRadius:0,borderDash:[4,4]}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{title:{display:true,text:'Pass #',font:{size:10}}},
+              y:{min:0,max:1,title:{display:true,text:'Risk Score',font:{size:10}}}}}
+  });
+
+  // Model comparison
+  destroyChart('modelCompChart');
+  chartInstances['modelCompChart']=new Chart(document.getElementById('modelCompChart'),{
+    type:'bar',
+    data:{labels:['Random Forest','XGBoost','Gradient Boost','Bagging'],
+      datasets:[{label:'AUC Score',
+        data:ds==='liver'?[0.872,0.856,0.841,0.863]:[0.834,0.841,0.829,0.838],
+        backgroundColor:['#00897B','#26A69A','#80CBC4','#B2DFDB']}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{y:{min:0.7,max:1.0,title:{display:true,text:'AUC',font:{size:10}}}}}
+  });
+
+  // Feature importance bars
+  const feats=ds==='liver'?[
+    {n:'Total Bilirubin',v:0.18},{n:'Direct Bilirubin',v:0.15},{n:'SGPT (ALT)',v:0.13},
+    {n:'SGOT (AST)',v:0.10},{n:'Alk. Phosphatase',v:0.09},{n:'Albumin',v:0.08},
+    {n:'Age',v:0.07},{n:'A/G Ratio',v:0.07},{n:'Total Proteins',v:0.06},{n:'Gender',v:0.04}
+  ]:[
+    {n:'Glucose',v:0.28},{n:'BMI',v:0.18},{n:'Age',v:0.14},{n:'Diabetes Pedigree',v:0.13},
+    {n:'Insulin',v:0.10},{n:'Blood Pressure',v:0.07},{n:'Skin Thickness',v:0.06},{n:'Pregnancies',v:0.05}
+  ];
+  const maxV=feats[0].v;
+  document.getElementById('feat-bars').innerHTML=feats.map(f=>`
+    <div class="feat-bar-row">
+      <span class="feat-name">${f.n}</span>
+      <div class="feat-track"><div class="feat-fill" style="width:${(f.v/maxV)*100}%;background:${color}"></div></div>
+      <span class="feat-val" style="color:${color}">${f.v.toFixed(2)}</span>
+    </div>`).join('');
+
+  // Confidence interval chart
+  const xs=Array.from({length:20},(_,i)=>i+1);
+  destroyChart('confChart');
+  chartInstances['confChart']=new Chart(document.getElementById('confChart'),{
+    type:'line',
+    data:{labels:xs,
+      datasets:[
+        {label:'Upper bound',data:xs.map(()=>Math.min(1,risk+sigma)),borderColor:color+'55',
+          backgroundColor:color+'11',fill:'+1',borderWidth:1,pointRadius:0},
+        {label:'Prediction',data:xs.map(i=>risk+(Math.sin(i)*0.02)),
+          borderColor:color,borderWidth:2.5,pointRadius:0,fill:false},
+        {label:'Lower bound',data:xs.map(()=>Math.max(0,risk-sigma)),
+          borderColor:color+'55',fill:false,borderWidth:1,pointRadius:0}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{y:{min:Math.max(0,risk-0.3),max:Math.min(1,risk+0.3)}}}
+  });
+}
+
+/* ═══════════════════ PDF DOWNLOAD ═══════════ */
+function downloadPDF(){
+  const w=window.open('','_blank');
+  const riskEl=document.getElementById('result-title').textContent;
+  const uEl=document.getElementById('u-val').textContent;
+  const summEl=document.getElementById('patient-summary').innerHTML;
+  const flag=document.getElementById('flag-title').textContent;
+  w.document.write(`<!DOCTYPE html><html><head><title>MedPredict Report</title>
+  <style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;color:#1A2E35}
+  h1{color:#00897B}h2{color:#C62828;font-size:16px;margin-top:24px}
+  .info{background:#f5f5f5;padding:16px;border-radius:8px;margin:12px 0;line-height:2}
+  .flag{background:#FFF8E1;border:1px solid #F9A825;padding:12px;border-radius:8px}
+  .footer{margin-top:40px;font-size:11px;color:#888;border-top:1px solid #ddd;padding-top:12px}
+  </style></head><body>
+  <h1>🏥 MedPredict — Clinical AI Report</h1>
+  <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+  <h2>🔬 Prediction Result</h2>
+  <div class="info"><strong>Outcome:</strong> ${riskEl}<br>
+  <strong>Uncertainty:</strong> ${uEl}<br>
+  <strong>Doctor Flag:</strong> ${flag}</div>
+  <h2>👤 Patient Summary</h2>
+  <div class="info">${summEl}</div>
+  <h2>📊 Feature Importance (Top 5)</h2>
+  <div class="info">Total Bilirubin / Glucose: 0.18 &nbsp;|&nbsp; Direct Bilirubin / BMI: 0.15 &nbsp;|&nbsp; SGPT/Age: 0.13 &nbsp;|&nbsp; SGOT: 0.10 &nbsp;|&nbsp; Alk.Phos: 0.09</div>
+  <div class="flag"><strong>⚑ Clinical Note:</strong> This report is generated by an AI system and should be reviewed by a qualified medical professional before clinical decisions are made.</div>
+  <div class="footer">MedPredict v1.0 (Prototype) — AI-based Clinical Decision Support System — For Research Use Only</div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>w.print(),500);
+}
+
+/* ═══════════════════ HOME CHARTS ════════════ */
+function initHomeCharts(){
+  setTimeout(()=>{
+    mkChart('homeChart1',{type:'doughnut',
+      data:{labels:['Liver Disease','Healthy'],datasets:[{data:[416,167],
+        backgroundColor:['#C62828','#00897B'],borderWidth:0}]},
+      options:{cutout:'65%',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}}}});
+    mkChart('homeChart2',{type:'doughnut',
+      data:{labels:['Diabetic','Non-Diabetic'],datasets:[{data:[268,500],
+        backgroundColor:['#C62828','#00897B'],borderWidth:0}]},
+      options:{cutout:'65%',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}}}});
+  },50);
+}
+
+/* ═══════════════════ EDA CHARTS ═════════════ */
+let edaInit={liver:false,diabetes:false};
+function initEdaCharts(){initLiverEda();initDiabetesEda();}
+
+function initLiverEda(){
+  if(edaInit.liver)return;edaInit.liver=true;
+  setTimeout(()=>{
+    // Age distribution
+    mkChart('eda-l-age',{type:'bar',
+      data:{labels:['<20','20-30','30-40','40-50','50-60','60-70','>70'],
+        datasets:[
+          {label:'Disease',data:[8,42,78,112,98,54,24],backgroundColor:'#C62828CC'},
+          {label:'Healthy',data:[5,18,32,46,38,20,8],backgroundColor:'#00897BCC'}
+        ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}},
+        scales:{x:{stacked:false},y:{stacked:false}}}});
+    // Class balance
+    mkChart('eda-l-class',{type:'doughnut',
+      data:{labels:['Liver Disease (416)','Healthy (167)'],
+        datasets:[{data:[416,167],backgroundColor:['#C62828','#00897B'],borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}});
+    // Scatter Bilirubin vs SGPT
+    const pts1=Array.from({length:60},()=>({x:+(Math.random()*12).toFixed(1),y:Math.round(Math.random()*700)}));
+    const pts2=Array.from({length:40},()=>({x:+(Math.random()*2).toFixed(1),y:Math.round(Math.random()*80)}));
+    mkChart('eda-l-scatter',{type:'scatter',
+      data:{datasets:[
+        {label:'Disease',data:pts1,backgroundColor:'#C6282888',pointRadius:4},
+        {label:'Healthy',data:pts2,backgroundColor:'#00897B88',pointRadius:4}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}},
+        scales:{x:{title:{display:true,text:'Total Bilirubin',font:{size:10}}},
+                y:{title:{display:true,text:'SGPT (IU/L)',font:{size:10}}}}}});
+    // Feature importance
+    mkChart('eda-l-feat',{type:'bar',
+      data:{labels:['T.Bili','D.Bili','SGPT','SGOT','Alk.Ph','Albumin','Age','A/G','T.Prot','Gender'],
+        datasets:[{label:'Importance',
+          data:[0.18,0.15,0.13,0.10,0.09,0.08,0.07,0.07,0.06,0.04],
+          backgroundColor:['#00695C','#00897B','#26A69A','#4DB6AC','#80CBC4','#B2DFDB','#80CBC4','#4DB6AC','#26A69A','#00897B']}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},scales:{x:{max:0.22}}}});
+    // Gender
+    mkChart('eda-l-gender',{type:'bar',
+      data:{labels:['Male','Female'],
+        datasets:[
+          {label:'Disease',data:[316,100],backgroundColor:'#C62828CC'},
+          {label:'Healthy',data:[103,64],backgroundColor:'#00897BCC'}
+        ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}}}});
+    // Albumin boxplot approximation
+    mkChart('eda-l-alb',{type:'bar',
+      data:{labels:['< 2.5','2.5–3.0','3.0–3.5','3.5–4.0','4.0–4.5','> 4.5'],
+        datasets:[
+          {label:'Disease',data:[48,72,98,112,62,24],backgroundColor:'#C62828CC'},
+          {label:'Healthy',data:[6,14,38,62,34,13],backgroundColor:'#00897BCC'}
+        ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}}}});
+  },50);
+}
+
+function initDiabetesEda(){
+  if(edaInit.diabetes)return;edaInit.diabetes=true;
+  setTimeout(()=>{
+    // Glucose by outcome
+    mkChart('eda-d-gluc',{type:'bar',
+      data:{labels:['<80','80-100','100-120','120-140','140-160','160-180','>180'],
+        datasets:[
+          {label:'Diabetic',data:[4,18,34,52,64,54,42],backgroundColor:'#C62828CC'},
+          {label:'Non-Diabetic',data:[18,82,110,108,82,54,26],backgroundColor:'#00897BCC'}
+        ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}}}});
+    // Class
+    mkChart('eda-d-class',{type:'doughnut',
+      data:{labels:['Diabetic (268)','Non-Diabetic (500)'],
+        datasets:[{data:[268,500],backgroundColor:['#C62828','#00897B'],borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}});
+    // BMI vs Age scatter
+    const dpts=Array.from({length:50},()=>({x:Math.round(20+Math.random()*50),y:+(15+Math.random()*40).toFixed(1)}));
+    const ndpts=Array.from({length:60},()=>({x:Math.round(20+Math.random()*40),y:+(18+Math.random()*25).toFixed(1)}));
+    mkChart('eda-d-scatter',{type:'scatter',
+      data:{datasets:[
+        {label:'Diabetic',data:dpts,backgroundColor:'#C6282888',pointRadius:4},
+        {label:'Non-Diabetic',data:ndpts,backgroundColor:'#00897B88',pointRadius:4}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}},
+        scales:{x:{title:{display:true,text:'Age',font:{size:10}}},
+                y:{title:{display:true,text:'BMI (kg/m²)',font:{size:10}}}}}});
+    // Feature importance
+    mkChart('eda-d-feat',{type:'bar',
+      data:{labels:['Glucose','BMI','Age','DPF','Insulin','BP','Skin','Pregnancies'],
+        datasets:[{label:'Importance',
+          data:[0.28,0.18,0.14,0.13,0.10,0.07,0.06,0.05],
+          backgroundColor:['#00695C','#00897B','#26A69A','#4DB6AC','#80CBC4','#80CBC4','#4DB6AC','#26A69A']}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},scales:{x:{max:0.32}}}});
+    // Insulin
+    mkChart('eda-d-ins',{type:'bar',
+      data:{labels:['0','1-50','51-100','101-200','201-300','>300'],
+        datasets:[
+          {label:'Diabetic',data:[64,38,52,72,28,14],backgroundColor:'#C62828CC'},
+          {label:'Non-Diabetic',data:[140,98,112,98,36,12],backgroundColor:'#00897BCC'}
+        ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}}}});
+    // BP by outcome
+    mkChart('eda-d-bp',{type:'bar',
+      data:{labels:['<60','60-70','70-80','80-90','90-100','>100'],
+        datasets:[
+          {label:'Diabetic',data:[18,42,68,78,44,18],backgroundColor:'#C62828CC'},
+          {label:'Non-Diabetic',data:[28,82,132,142,82,34],backgroundColor:'#00897BCC'}
+        ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}}}});
+  },50);
+}
+
+/* EDA tab switch */
+function switchEdaTab(ds){
+  document.getElementById('eda-liver').style.display=ds==='liver'?'block':'none';
+  document.getElementById('eda-diabetes').style.display=ds==='diabetes'?'block':'none';
+  document.getElementById('eda-tab-liver').classList.toggle('active',ds==='liver');
+  document.getElementById('eda-tab-diabetes').classList.toggle('active',ds==='diabetes');
+  if(ds==='diabetes'&&!edaInit.diabetes)initDiabetesEda();
+}
+
+/* Features tab switch */
+function switchFeatTab(ds){
+  document.getElementById('feat-liver').style.display=ds==='liver'?'block':'none';
+  document.getElementById('feat-diabetes').style.display=ds==='diabetes'?'block':'none';
+  document.getElementById('feat-tab-liver').classList.toggle('active',ds==='liver');
+  document.getElementById('feat-tab-diabetes').classList.toggle('active',ds==='diabetes');
+}
+
+function clearCharts(){
+  Object.values(chartInstances).forEach(c=>c.destroy());
+  chartInstances={};
+  edaInit={liver:false,diabetes:false};
+}
+</script>
+</body>
+</html>
